@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expense Tracker</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState } = React;
+
+        function ExpenseTracker() {
+            const [expenses, setExpenses] = useState(() => {
+                const saved = localStorage.getItem('expenses');
+                return saved ? JSON.parse(saved) : [];
+            });
+            const [selectedDate, setSelectedDate] = useState(new Date());
+            const [showAddDialog, setShowAddDialog] = useState(false);
+            const [expenseForm, setExpenseForm] = useState({
+                description: '',
+                amount: '',
+                category: 'general',
+                date: new Date().toISOString().split('T')[0]
+            });
+
+            // Save expenses to localStorage whenever they change
+            React.useEffect(() => {
+                localStorage.setItem('expenses', JSON.stringify(expenses));
+            }, [expenses]);
+
+            const categories = {
+                general: 'bg-gray-200',
+                food: 'bg-green-200',
+                transportation: 'bg-blue-200',
+                entertainment: 'bg-purple-200',
+                utilities: 'bg-yellow-200'
+            };
+
+            const getDaysInMonth = (date) => {
+                const year = date.getFullYear();
+                const month = date.getMonth();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                return Array.from({ length: daysInMonth }, (_, i) => new Date(year, month, i + 1));
+            };
+
+            const addExpense = () => {
+                if (expenseForm.description && expenseForm.amount) {
+                    setExpenses([...expenses, { ...expenseForm, id: Date.now() }]);
+                    setExpenseForm({
+                        description: '',
+                        amount: '',
+                        category: 'general',
+                        date: new Date().toISOString().split('T')[0]
+                    });
+                    setShowAddDialog(false);
+                }
+            };
+
+            const deleteExpense = (id) => {
+                setExpenses(expenses.filter(exp => exp.id !== id));
+            };
+
+            const getDayExpenses = (date) => {
+                return expenses.filter(expense => 
+                    new Date(expense.date).toDateString() === date.toDateString()
+                );
+            };
+
+            const getTotalExpenses = () => {
+                return expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
+            };
+
+            return (
+                <div className="max-w-4xl mx-auto p-4">
+                    <div className="bg-white rounded-lg shadow-lg mb-4">
+                        <div className="p-4 border-b">
+                            <div className="flex items-center justify-between">
+                                <h1 className="text-xl font-bold">Expense Calendar</h1>
+                                <button 
+                                    onClick={() => setShowAddDialog(true)}
+                                    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                                >
+                                    Add Expense
+                                </button>
+                            </div>
+                        </div>
+                        <div className="p-4">
+                            <div className="grid grid-cols-7 gap-2">
+                                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                                    <div key={day} className="text-center font-semibold p-2">
+                                        {day}
+                                    </div>
+                                ))}
+                                {getDaysInMonth(selectedDate).map(date => {
+                                    const dayExpenses = getDayExpenses(date);
+                                    const total = dayExpenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
+                                    
+                                    return (
+                                        <div
+                                            key={date.toISOString()}
+                                            className={`border rounded-lg p-2 min-h-24 ${
+                                                date.toDateString() === new Date().toDateString()
+                                                    ? 'bg-blue-50'
+                                                    : ''
+                                            }`}
+                                        >
+                                            <div className="font-medium">{date.getDate()}</div>
+                                            {total > 0 && (
+                                                <div className="text-sm text-gray-600">
+                                                    ${total.toFixed(2)}
+                                                </div>
+                                            )}
+                                            {dayExpenses.map(expense => (
+                                                <div
+                                                    key={expense.id}
+                                                    className={`text-xs p-1 mt-1 rounded ${categories[expense.category]} flex justify-between items-center`}
+                                                >
+                                                    <span>{expense.description}</span>
+                                                    <button 
+                                                        onClick={() => deleteExpense(expense.id)}
+                                                        className="ml-2 text-red-500 hover:text-red-700"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+
+                    {showAddDialog && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                                <h2 className="text-xl font-bold mb-4">Add New Expense</h2>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block mb-1">Description</label>
+                                        <input
+                                            type="text"
+                                            className="w-full p-2 border rounded"
+                                            value={expenseForm.description}
+                                            onChange={(e) => setExpenseForm({...expenseForm, description: e.target.value})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block mb-1">Amount</label>
+                                        <input
+                                            type="number"
+                                            className="w-full p-2 border rounded"
+                                            value={expenseForm.amount}
+                                            onChange={(e) => setExpenseForm({...expenseForm, amount: e.target.value})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block mb-1">Category</label>
+                                        <select
+                                            className="w-full p-2 border rounded"
+                                            value={expenseForm.category}
+                                            onChange={(e) => setExpenseForm({...expenseForm, category: e.target.value})}
+                                        >
+                                            {Object.keys(categories).map(category => (
+                                                <option key={category} value={category}>
+                                                    {category.charAt(0).toUpperCase() + category.slice(1)}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block mb-1">Date</label>
+                                        <input
+                                            type="date"
+                                            className="w-full p-2 border rounded"
+                                            value={expenseForm.date}
+                                            onChange={(e) => setExpenseForm({...expenseForm, date: e.target.value})}
+                                        />
+                                    </div>
+                                    <div className="flex justify-end space-x-2">
+                                        <button
+                                            onClick={() => setShowAddDialog(false)}
+                                            className="px-4 py-2 border rounded hover:bg-gray-100"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={addExpense}
+                                            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                                        >
+                                            Add Expense
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="bg-white rounded-lg shadow-lg p-4">
+                        <h2 className="text-xl font-bold mb-4">Total Expenses: ${getTotalExpenses().toFixed(2)}</h2>
+                        <div className="space-y-2">
+                            {Object.entries(categories).map(([category, colorClass]) => {
+                                const categoryTotal = expenses
+                                    .filter(exp => exp.category === category)
+                                    .reduce((sum, exp) => sum + Number(exp.amount), 0);
+                                
+                                return (
+                                    <div key={category} className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <div className={`w-4 h-4 rounded ${colorClass}`}></div>
+                                            <span className="capitalize">{category}</span>
+                                        </div>
+                                        <span>${categoryTotal.toFixed(2)}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<ExpenseTracker />, document.getElementById('root'));
+    </script>
+</body>
+</html>
